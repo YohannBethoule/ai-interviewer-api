@@ -12,9 +12,7 @@ func InitRouter() {
 			"message": "pong",
 		})
 	})
-	r.GET("/prompt", testPrompt())
-	r.GET("/ws", func(c *gin.Context) {
-		wsHandler(c.Writer, c.Request)
-	})
+	r.GET("/test", testPrompt())
+	r.GET("/start", startConversation())
 	r.Run()
 }

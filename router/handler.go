@@ -3,11 +3,18 @@ package router
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	"interviewer-api/domain"
 	"interviewer-api/service"
 	"net/http"
 	"os"
 )
+
+type startRequest struct {
+	JobTitle            string `form:"jobTitle"`
+	YearsOfExperience   uint   `form:"yearsOfExperience"`
+	InterviewerPosition string `form:"interviewerPosition"`
+	JobDescription      string `form:"jobDescription"`
+}
 
 func testPrompt() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -22,23 +29,20 @@ func testPrompt() gin.HandlerFunc {
 	}
 }
 
-var wsupgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func wsHandler(w http.ResponseWriter, r *http.Request) {
-	conn, err := wsupgrader.Upgrade(w, r, nil)
-	if err != nil {
-		fmt.Println("Failed to set websocket upgrade: %+v", err)
-		return
-	}
-
-	for {
-		t, msg, err := conn.ReadMessage()
-		if err != nil {
-			break
+func startConversation() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request startRequest
+		if errBindRequest := c.ShouldBindQuery(&request); errBindRequest != nil {
+			fmt.Sprintln("ERROR reading request : %s", errBindRequest.Error())
+			c.String(http.StatusBadRequest, errBindRequest.Error())
 		}
-		conn.WriteMessage(t, msg)
+		jobSummaryPrompt := domain.GenerateJobSummaryPrompt(request.JobDescription)
+		openaiClient := service.NewOpenAiClient(os.Getenv("OPENAI_API_KEY"))
+		answer, err := openaiClient.SendRequest(jobSummaryPrompt)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		c.String(http.StatusOK, answer)
 	}
 }
